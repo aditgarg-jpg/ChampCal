@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="My Notion">
+    <title>My Notion Workspace</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        /* Claude-style Dark Mode Palette */
+        :root {
+            --bg-main: #18181b; --bg-sidebar: #222225; --bg-card: #27272a; --bg-hover: #3f3f46;
+            --text-main: #e4e4e7; --text-muted: #a1a1aa; --border: #3f3f46;
+            --accent: #d97757; --accent-hover: #c26547;
+            --progress-bg: #3f3f46; --progress-fill: #10b981; --canvas-blue: #008ee6;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-main); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+
+        /* Sidebar - Adjusted for mobile via media queries later if needed */
+        .sidebar { width: 250px; background-color: var(--bg-sidebar); border-right: 1px solid var(--border); padding: 40px 10px 20px; display: flex; flex-direction: column; gap: 10px; }
+        .nav-btn { background: none; border: none; color: var(--text-muted); text-align: left; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+        .nav-btn:hover { background-color: var(--bg-hover); color: var(--text-main); }
+        .nav-btn.active { background-color: var(--bg-hover); color: var(--text-main); font-weight: bold; }
+
+        /* Main Content */
+        .main-content { flex: 1; padding: 40px 30px 30px; overflow-y: auto; }
+        .page { display: none; }
+        .page.active { display: block; }
+        h1, h2, h3 { margin-bottom: 20px; font-weight: 500; }
+        
+        /* Forms */
+        .task-form { background-color: var(--bg-card); padding: 20px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 30px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; align-items: end; }
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        .form-group label { font-size: 12px; color: var(--text-muted); }
+        input, select, button, textarea { padding: 8px 12px; background-color: var(--bg-main); border: 1px solid var(--border); color: var(--text-main); border-radius: 4px; }
+        
+        button.primary { background-color: var(--accent); color: white; border: none; cursor: pointer; font-weight: 500; }
+        button.primary:hover { background-color: var(--accent-hover); }
+        button.danger { background-color: #ef4444; color: white; border: none; cursor: pointer; }
+
+        /* Task List */
+        .task-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 30px; }
+        .task-item { background-color: var(--bg-card); border: 1px solid var(--border); padding: 15px; border-radius: 8px; display: flex; align-items: center; gap: 15px; }
+        .task-item.completed { opacity: 0.5; text-decoration: line-through; }
+        .task-checkbox { width: 20px; height: 20px; cursor: pointer; }
+        .task-details { flex: 1; }
+        .task-title { font-weight: 500; margin-bottom: 5px; }
+        .task-meta { font-size: 12px; color: var(--text-muted); display: flex; gap: 15px; flex-wrap: wrap; }
+        .tag { background-color: var(--bg-hover); padding: 2px 6px; border-radius: 4px; }
+
+        /* Slider */
+        .progress-container { width: 120px; display: flex; align-items: center; gap: 10px; }
+        .progress-slider { -webkit-appearance: none; width: 100%; height: 6px; background: var(--progress-bg); border-radius: 4px; outline: none; }
+        .progress-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--progress-fill); cursor: pointer; }
+        .progress-text { font-size: 12px; width: 35px; text-align: right; }
+
+        /* Class Cards */
+        .class-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
+        .class-card { background-color: var(--bg-card); border: 1px solid var(--border); padding: 20px; border-radius: 8px; }
+        .class-card h3 { margin-bottom: 10px; color: var(--accent); }
+        .class-detail { margin-bottom: 8px; font-size: 14px; }
+
+        /* Calendar Embeds & Layout */
+        .calendar-container { width: 100%; height: 500px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); margin-top: 20px; }
+        iframe { width: 100%; height: 100%; }
+        
+        /* Mobile Responsiveness */
+        .split-view { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 900px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; flex-direction: row; flex-wrap: wrap; padding: 40px 10px 10px; border-right: none; border-bottom: 1px solid var(--border); }
+            .split-view { grid-template-columns: 1fr; }
+            .task-form { grid-template-columns: 1fr; }
+        }
+        
+        #loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-main); display: flex; justify-content: center; align-items: center; z-index: 9999; font-size: 20px; color: var(--accent); transition: opacity 0.3s; }
+    </style>
+</head>
+<body>
+    
+    <div id="loading-overlay">Syncing with Cloud...</div>
+
+    <div class="sidebar">
+        <button class="nav-btn active" onclick="switchPage('dashboard')">Dashboard</button>
+        <button class="nav-btn" onclick="switchPage('schoolwork')">Classes</button>
+        <button class="nav-btn" onclick="switchPage('classinfo')">Info</button>
+        <button class="nav-btn" onclick="switchPage('personal')">Personal</button>
+    </div>
+
+    <div class="main-content">
+        <div class="task-form" id="global-task-form">
+            <div class="form-group"><label>Title</label><input type="text" id="t-title" placeholder="e.g. Read Chapter 4"></div>
+            <div class="form-group"><label>Category</label>
+                <select id="t-category"><option value="school">Assignment</option><option value="exam">Exam/Quiz</option><option value="personal">Personal</option><option value="event">Meeting/Event</option></select>
+            </div>
+            <div class="form-group"><label>Class/Context</label><input type="text" id="t-class" placeholder="e.g. Math 101"></div>
+            <div class="form-group"><label>Due Date</label><input type="date" id="t-date"></div>
+            <div class="form-group"><label>Priority</label>
+                <select id="t-priority"><option value="High">High</option><option value="Medium" selected>Medium</option><option value="Low">Low</option></select>
+            </div>
+            <div class="form-group" style="flex-direction: row; align-items: center; gap: 5px; height: 35px;">
+                <input type="checkbox" id="t-weekly"> <label>Weekly</label>
+            </div>
+            <button class="primary" onclick="addTask()">Add Task</button>
+        </div>
+
+        <div id="dashboard" class="page active">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h1>Dashboard</h1>
+            </div>
+            <div class="split-view">
+                <div><h3>Pending Tasks</h3><div id="all-tasks-list" class="task-list"></div></div>
+                <div><h3>Overview Calendar</h3><div class="calendar-container"><iframe src="https://calendar.google.com/calendar/embed?src=aditgarg%40umich.edu&ctz=America%2FNew_York" frameborder="0" scrolling="no"></iframe></div></div>
+            </div>
+        </div>
+
+        <div id="schoolwork" class="page">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h1>Class Assignments</h1>
+                <button class="primary" onclick="toggleCanvasSettings()" style="background-color: var(--canvas-blue);">⬇ Import from Canvas</button>
+            </div>
+            <div id="canvas-settings" class="task-form" style="display: none; background-color: #1e1e20; border-color: var(--canvas-blue);">
+                <div class="form-group"><label>Canvas Domain</label><input type="text" id="c-domain" value="canvas.umich.edu"></div>
+                <div class="form-group"><label>Canvas API Token</label><input type="password" id="c-token" placeholder="Paste Token Here"></div>
+                <button class="primary" onclick="fetchCanvasData()" style="background-color: var(--canvas-blue); height: 35px;">Sync Now</button>
+            </div>
+            <div class="split-view">
+                <div><h3>Exams & Quizzes</h3><div id="exams-list" class="task-list"></div><h3>Assignments</h3><div id="school-tasks-list" class="task-list"></div></div>
+                <div><h3>Class Calendar</h3><div class="calendar-container"><iframe src="https://calendar.google.com/calendar/embed?src=c_8b51ece401e6feea308cb3e180c776e458527a856c21d1e2bd225be9e8bdd0aa%40group.calendar.google.com&ctz=America%2FNew_York" frameborder="0" scrolling="no"></iframe></div></div>
+            </div>
+        </div>
+
+        <div id="classinfo" class="page">
+            <h1>Class Information</h1>
+            <div class="task-form">
+                <div class="form-group"><label>Class Name</label><input type="text" id="ci-name"></div>
+                <div class="form-group"><label>Professor Name</label><input type="text" id="ci-prof"></div>
+                <div class="form-group"><label>Professor Email</label><input type="email" id="ci-email"></div>
+                <div class="form-group"><label>Notable Classmates</label><input type="text" id="ci-mates"></div>
+                <div class="form-group" style="grid-column: 1 / -1;"><label>Syllabus Link or Notes</label><textarea id="ci-syllabus" rows="2"></textarea></div>
+                <button class="primary" onclick="addClassInfo()" style="grid-column: 1 / -1;">Save Class Info</button>
+            </div>
+            <div id="class-grid" class="class-grid"></div>
+        </div>
+
+        <div id="personal" class="page">
+            <h1>Personal Tasks & Events</h1>
+            <div class="split-view">
+                <div><h3>Personal Tasks & Meetings</h3><div id="personal-tasks-list" class="task-list"></div></div>
+                <div><h3>Events Calendar</h3><div class="calendar-container"><iframe src="https://calendar.google.com/calendar/embed?src=c_fe4ba42333be7e0858e46e51142953f0c94fad8e94923765c5e2e80d88b3608d%40group.calendar.google.com&ctz=America%2FNew_York" frameborder="0" scrolling="no"></iframe></div></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. PASTE YOUR FIREBASE CONFIG HERE
+        // ==========================================
+          const firebaseConfig = {
+    apiKey: "AIzaSyDezfkz8PrgHU7s8U9ddMRT1hKYSHmJ0x8",
+    authDomain: "mynotionapp-8ef0d.firebaseapp.com",
+    projectId: "mynotionapp-8ef0d",
+    storageBucket: "mynotionapp-8ef0d.firebasestorage.app",
+    messagingSenderId: "666058412818",
+    appId: "1:666058412818:web:8bb86e8f18db1a358659cb",
+    measurementId: "G-SQFBEB33CP"
+  };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Local Data State
+        let tasks = [];
+        let classData = [];
+
+        // ==========================================
+        // 2. CLOUD SYNC LOGIC
+        // ==========================================
+        async function loadDataFromCloud() {
+            try {
+                const docRef = db.collection("notionWorkspace").doc("myData");
+                const doc = await docRef.get();
+                if (doc.exists) {
+                    tasks = doc.data().tasks || [];
+                    classData = doc.data().classData || [];
+                }
+                renderTasks();
+                renderClasses();
+                // Hide loading screen
+                document.getElementById('loading-overlay').style.opacity = '0';
+                setTimeout(() => document.getElementById('loading-overlay').style.display = 'none', 300);
+            } catch (error) {
+                console.error("Error loading data:", error);
+                document.getElementById('loading-overlay').innerText = "Database connection error (Did you paste your config keys?)";
+            }
+        }
+
+        async function saveToCloud() {
+            try {
+                await db.collection("notionWorkspace").doc("myData").set({
+                    tasks: tasks,
+                    classData: classData
+                });
+            } catch (error) {
+                console.error("Error saving data:", error);
+            }
+        }
+
+        // ==========================================
+        // 3. APP LOGIC
+        // ==========================================
+        function switchPage(pageId) {
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function addTask() {
+            const title = document.getElementById('t-title').value;
+            if (!title) return alert("Title is required!");
+            tasks.push({
+                id: Date.now(), title: title, category: document.getElementById('t-category').value, classCtx: document.getElementById('t-class').value || 'General', dueDate: document.getElementById('t-date').value || '9999-12-31', priority: document.getElementById('t-priority').value, progress: 0, completed: false, weekly: document.getElementById('t-weekly').checked
+            });
+            document.getElementById('t-title').value = ''; document.getElementById('t-class').value = ''; document.getElementById('t-date').value = '';
+            renderTasks();
+            saveToCloud();
+        }
+
+        function updateProgress(id, newProgress) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.progress = parseInt(newProgress);
+                task.completed = (task.progress === 100);
+                renderTasks();
+                saveToCloud();
+            }
+        }
+
+        function toggleComplete(id) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = !task.completed;
+                task.progress = task.completed ? 100 : 0;
+                if (task.completed && task.weekly) {
+                    let nextWeek = new Date(task.dueDate); nextWeek.setDate(nextWeek.getDate() + 7);
+                    tasks.push({ ...task, id: Date.now(), dueDate: nextWeek.toISOString().split('T')[0], progress: 0, completed: false });
+                }
+                renderTasks();
+                saveToCloud();
+            }
+        }
+
+        function addClassInfo() {
+            const name = document.getElementById('ci-name').value;
+            if (!name) return alert("Class name required!");
+            classData.push({
+                id: Date.now(), name: name, prof: document.getElementById('ci-prof').value, email: document.getElementById('ci-email').value, mates: document.getElementById('ci-mates').value, syllabus: document.getElementById('ci-syllabus').value
+            });
+            document.getElementById('ci-name').value = ''; document.getElementById('ci-prof').value = ''; document.getElementById('ci-email').value = ''; document.getElementById('ci-mates').value = ''; document.getElementById('ci-syllabus').value = '';
+            renderClasses();
+            saveToCloud();
+        }
+
+        function deleteClass(id) {
+            classData = classData.filter(c => c.id !== id);
+            renderClasses();
+            saveToCloud();
+        }
+
+        // Canvas API
+        function toggleCanvasSettings() {
+            const settings = document.getElementById('canvas-settings');
+            settings.style.display = settings.style.display === 'none' ? 'grid' : 'none';
+        }
+
+        async function fetchCanvasData() {
+            const domain = document.getElementById('c-domain').value.trim();
+            const token = document.getElementById('c-token').value.trim();
+            if (!domain || !token) return alert("Enter Canvas domain and API token.");
+            try {
+                const response = await fetch(`https://${domain}/api/v1/users/self/todo`, { headers: { 'Authorization': `Bearer ${token}` }});
+                if (!response.ok) throw new Error("CORS Blocked or Auth Failed.");
+                const todos = await response.json();
+                let addedCount = 0;
+                todos.forEach(item => {
+                    const taskTitle = item.assignment ? item.assignment.name : (item.ignore_url || "Canvas Task");
+                    if (!tasks.find(t => t.title === taskTitle)) {
+                        const isExam = taskTitle.toLowerCase().includes('exam') || taskTitle.toLowerCase().includes('quiz');
+                        tasks.push({
+                            id: Date.now() + Math.random(), title: taskTitle, category: isExam ? "exam" : "school", classCtx: item.context_name ? item.context_name.split(' ')[0] : "Canvas", dueDate: item.assignment && item.assignment.due_at ? item.assignment.due_at.split('T')[0] : '9999-12-31', priority: "High", progress: 0, completed: false, weekly: false
+                        });
+                        addedCount++;
+                    }
+                });
+                alert(`Imported ${addedCount} new assignments from Canvas.`);
+                renderTasks(); saveToCloud(); toggleCanvasSettings(); 
+            } catch (error) {
+                alert("Error syncing with Canvas: " + error.message);
+            }
+        }
+
+        // Render functions
+        function renderTasks() {
+            const sortedTasks = [...tasks].sort((a, b) => {
+                if (a.dueDate !== b.dueDate) return new Date(a.dueDate) - new Date(b.dueDate);
+                return a.progress - b.progress;
+            });
+            const allList = document.getElementById('all-tasks-list'); const schoolList = document.getElementById('school-tasks-list'); const examsList = document.getElementById('exams-list'); const personalList = document.getElementById('personal-tasks-list');
+            allList.innerHTML = ''; schoolList.innerHTML = ''; examsList.innerHTML = ''; personalList.innerHTML = '';
+
+            sortedTasks.forEach(task => {
+                const taskHTML = `
+                    <div class="task-item ${task.completed ? 'completed' : ''}">
+                        <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} onchange="toggleComplete(${task.id})">
+                        <div class="task-details">
+                            <div class="task-title">${task.title} ${task.weekly ? '🔁' : ''}</div>
+                            <div class="task-meta">
+                                <span class="tag">${task.classCtx}</span>
+                                <span class="tag" style="color: ${task.priority === 'High' ? '#ef4444' : 'inherit'}">Priority: ${task.priority}</span>
+                                <span class="tag">Due: ${task.dueDate === '9999-12-31' ? 'No Date' : task.dueDate}</span>
+                            </div>
+                        </div>
+                        <div class="progress-container">
+                            <input type="range" class="progress-slider" min="0" max="100" step="5" value="${task.progress}" onchange="updateProgress(${task.id}, this.value)" ${task.completed ? 'disabled' : ''}>
+                            <span class="progress-text">${task.progress}%</span>
+                        </div>
+                    </div>`;
+                allList.innerHTML += taskHTML;
+                if (task.category === 'school') schoolList.innerHTML += taskHTML;
+                else if (task.category === 'exam') examsList.innerHTML += taskHTML;
+                else personalList.innerHTML += taskHTML;
+            });
+        }
+
+        function renderClasses() {
+            const grid = document.getElementById('class-grid');
+            grid.innerHTML = '';
+            classData.forEach(c => {
+                let syllabusContent = c.syllabus;
+                if(syllabusContent.startsWith('http')) syllabusContent = `<a href="${syllabusContent}" target="_blank" style="color: var(--canvas-blue);">View Syllabus Link</a>`;
+                grid.innerHTML += `
+                    <div class="class-card">
+                        <h3>${c.name}</h3>
+                        <div class="class-detail"><strong>Professor:</strong> ${c.prof || 'N/A'}</div>
+                        <div class="class-detail"><strong>Email:</strong> <a href="mailto:${c.email}" style="color: var(--text-main);">${c.email || 'N/A'}</a></div>
+                        <div class="class-detail"><strong>Classmates:</strong> ${c.mates || 'N/A'}</div>
+                        <div class="class-detail" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
+                            <strong>Syllabus/Notes:</strong><br>${syllabusContent || 'None provided.'}
+                        </div>
+                        <button class="danger" style="margin-top: 15px; width: 100%; padding: 8px;" onclick="deleteClass(${c.id})">Remove Class</button>
+                    </div>`;
+            });
+        }
+
+        // Boot up!
+        loadDataFromCloud();
+    </script>
+</body>
+</html>
