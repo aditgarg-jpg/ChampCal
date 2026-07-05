@@ -7,13 +7,14 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="My Notion">
+
     <title>My Notion Workspace</title>
     
     <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore-compat.js"></script>
 
     <style>
-        /* Claude-style Dark Mode Palette */
+        /* Dark Mode Palette */
         :root {
             --bg-main: #18181b; --bg-sidebar: #222225; --bg-card: #27272a; --bg-hover: #3f3f46;
             --text-main: #e4e4e7; --text-muted: #a1a1aa; --border: #3f3f46;
@@ -24,7 +25,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         body { background-color: var(--bg-main); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
 
-        /* Sidebar - Adjusted for mobile via media queries later if needed */
+        /* Sidebar */
         .sidebar { width: 250px; background-color: var(--bg-sidebar); border-right: 1px solid var(--border); padding: 40px 10px 20px; display: flex; flex-direction: column; gap: 10px; }
         .nav-btn { background: none; border: none; color: var(--text-muted); text-align: left; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
         .nav-btn:hover { background-color: var(--bg-hover); color: var(--text-main); }
@@ -45,6 +46,11 @@
         button.primary { background-color: var(--accent); color: white; border: none; cursor: pointer; font-weight: 500; }
         button.primary:hover { background-color: var(--accent-hover); }
         button.danger { background-color: #ef4444; color: white; border: none; cursor: pointer; }
+
+        /* Day Selector Styles (Google Calendar Style) */
+        .day-selector { display: flex; gap: 6px; margin-top: 2px; }
+        .day-badge { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; background-color: var(--bg-main); border: 1px solid var(--border); border-radius: 50%; font-size: 12px; cursor: pointer; user-select: none; transition: all 0.15s ease; color: var(--text-muted); }
+        .day-badge.selected { background-color: var(--accent); color: white; border-color: var(--accent); }
 
         /* Task List */
         .task-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 30px; }
@@ -68,7 +74,7 @@
         .class-card h3 { margin-bottom: 10px; color: var(--accent); }
         .class-detail { margin-bottom: 8px; font-size: 14px; }
 
-        /* Calendar Embeds & Layout */
+        /* Calendar Embeds */
         .calendar-container { width: 100%; height: 500px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); margin-top: 20px; }
         iframe { width: 100%; height: 100%; }
         
@@ -97,25 +103,33 @@
 
     <div class="main-content">
         <div class="task-form" id="global-task-form">
-            <div class="form-group"><label>Title</label><input type="text" id="t-title" placeholder="e.g. Read Chapter 4"></div>
+            <div class="form-group"><label>Title</label><input type="text" id="t-title" placeholder="e.g. Weekly Homework Log"></div>
             <div class="form-group"><label>Category</label>
                 <select id="t-category"><option value="school">Assignment</option><option value="exam">Exam/Quiz</option><option value="personal">Personal</option><option value="event">Meeting/Event</option></select>
             </div>
             <div class="form-group"><label>Class/Context</label><input type="text" id="t-class" placeholder="e.g. Math 101"></div>
-            <div class="form-group"><label>Due Date</label><input type="date" id="t-date"></div>
+            <div class="form-group"><label>Start / Due Date</label><input type="date" id="t-date"></div>
             <div class="form-group"><label>Priority</label>
                 <select id="t-priority"><option value="High">High</option><option value="Medium" selected>Medium</option><option value="Low">Low</option></select>
             </div>
-            <div class="form-group" style="flex-direction: row; align-items: center; gap: 5px; height: 35px;">
-                <input type="checkbox" id="t-weekly"> <label>Weekly</label>
+            
+            <div class="form-group" style="grid-column: 1 / -1;">
+                <label>Repeats on specific days (Optional):</label>
+                <div class="day-selector">
+                    <div class="day-badge" data-day="1" onclick="toggleDaySelection(this)">M</div>
+                    <div class="day-badge" data-day="2" onclick="toggleDaySelection(this)">T</div>
+                    <div class="day-badge" data-day="3" onclick="toggleDaySelection(this)">W</div>
+                    <div class="day-badge" data-day="4" onclick="toggleDaySelection(this)">Th</div>
+                    <div class="day-badge" data-day="5" onclick="toggleDaySelection(this)">F</div>
+                    <div class="day-badge" data-day="6" onclick="toggleDaySelection(this)">S</div>
+                    <div class="day-badge" data-day="0" onclick="toggleDaySelection(this)">Su</div>
+                </div>
             </div>
-            <button class="primary" onclick="addTask()">Add Task</button>
+            <button class="primary" onclick="addTask()" style="grid-column: 1 / -1; margin-top: 10px;">Add Task</button>
         </div>
 
         <div id="dashboard" class="page active">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h1>Dashboard</h1>
-            </div>
+            <h1>Dashboard</h1>
             <div class="split-view">
                 <div><h3>Pending Tasks</h3><div id="all-tasks-list" class="task-list"></div></div>
                 <div><h3>Overview Calendar</h3><div class="calendar-container"><iframe src="https://calendar.google.com/calendar/embed?src=aditgarg%40umich.edu&ctz=America%2FNew_York" frameborder="0" scrolling="no"></iframe></div></div>
@@ -140,12 +154,12 @@
 
         <div id="classinfo" class="page">
             <h1>Class Information</h1>
-            <div class="task-form">
+            <div class="task-form" style="grid-template-columns: 1fr 1fr;">
                 <div class="form-group"><label>Class Name</label><input type="text" id="ci-name"></div>
                 <div class="form-group"><label>Professor Name</label><input type="text" id="ci-prof"></div>
                 <div class="form-group"><label>Professor Email</label><input type="email" id="ci-email"></div>
                 <div class="form-group"><label>Notable Classmates</label><input type="text" id="ci-mates"></div>
-                <div class="form-group" style="grid-column: 1 / -1;"><label>Syllabus Link or Notes</label><textarea id="ci-syllabus" rows="2"></textarea></div>
+                <div class="form-group" style="grid-column: 1 / -1;"><label>Paste Syllabus Link / General Notes</label><textarea id="ci-syllabus" rows="3"></textarea></div>
                 <button class="primary" onclick="addClassInfo()" style="grid-column: 1 / -1;">Save Class Info</button>
             </div>
             <div id="class-grid" class="class-grid"></div>
@@ -164,15 +178,7 @@
         // ==========================================
         // 1. PASTE YOUR FIREBASE CONFIG HERE
         // ==========================================
-          const firebaseConfig = {
-    apiKey: "AIzaSyDezfkz8PrgHU7s8U9ddMRT1hKYSHmJ0x8",
-    authDomain: "mynotionapp-8ef0d.firebaseapp.com",
-    projectId: "mynotionapp-8ef0d",
-    storageBucket: "mynotionapp-8ef0d.firebasestorage.app",
-    messagingSenderId: "666058412818",
-    appId: "1:666058412818:web:8bb86e8f18db1a358659cb",
-    measurementId: "G-SQFBEB33CP"
-  };
+        const firebaseConfig = { apiKey: "AIzaSyDezfkz8PrgHU7s8U9ddMRT1hKYSHmJ0x8", authDomain: "mynotionapp-8ef0d.firebaseapp.com", projectId: "mynotionapp-8ef0d", storageBucket: "mynotionapp-8ef0d.firebasestorage.app", messagingSenderId: "666058412818", appId: "1:666058412818:web:8bb86e8f18db1a358659cb", measurementId: "G-SQFBEB33CP" };
         
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
@@ -195,12 +201,11 @@
                 }
                 renderTasks();
                 renderClasses();
-                // Hide loading screen
                 document.getElementById('loading-overlay').style.opacity = '0';
                 setTimeout(() => document.getElementById('loading-overlay').style.display = 'none', 300);
             } catch (error) {
                 console.error("Error loading data:", error);
-                document.getElementById('loading-overlay').innerText = "Database connection error (Did you paste your config keys?)";
+                document.getElementById('loading-overlay').innerText = "Database error. Did you add your config keys?";
             }
         }
 
@@ -216,7 +221,7 @@
         }
 
         // ==========================================
-        // 3. APP LOGIC
+        // 3. UI & REPEATING LOGIC
         // ==========================================
         function switchPage(pageId) {
             document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
@@ -225,13 +230,58 @@
             event.target.classList.add('active');
         }
 
+        function toggleDaySelection(element) {
+            element.classList.toggle('selected');
+        }
+
+        // Find the next date that matches one of the selected repeating days
+        function getNextOccurrenceDate(currentDateStr, repeatDaysArr) {
+            // Treat the date string as local time to avoid timezone jumping
+            const parts = currentDateStr.split('-');
+            let date = new Date(parts[0], parts[1] - 1, parts[2]); 
+            if (isNaN(date.getTime())) date = new Date();
+
+            for (let i = 1; i <= 7; i++) {
+                date.setDate(date.getDate() + 1);
+                if (repeatDaysArr.includes(date.getDay())) {
+                    // Format back to YYYY-MM-DD
+                    const y = date.getFullYear();
+                    const m = String(date.getMonth() + 1).padStart(2, '0');
+                    const d = String(date.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${d}`;
+                }
+            }
+            return currentDateStr;
+        }
+
         function addTask() {
             const title = document.getElementById('t-title').value;
             if (!title) return alert("Title is required!");
-            tasks.push({
-                id: Date.now(), title: title, category: document.getElementById('t-category').value, classCtx: document.getElementById('t-class').value || 'General', dueDate: document.getElementById('t-date').value || '9999-12-31', priority: document.getElementById('t-priority').value, progress: 0, completed: false, weekly: document.getElementById('t-weekly').checked
+            
+            // Gather selected repeat days
+            let repeatDays = [];
+            document.querySelectorAll('.day-badge.selected').forEach(badge => {
+                repeatDays.push(parseInt(badge.getAttribute('data-day')));
             });
-            document.getElementById('t-title').value = ''; document.getElementById('t-class').value = ''; document.getElementById('t-date').value = '';
+
+            tasks.push({
+                id: Date.now(), 
+                title: title, 
+                category: document.getElementById('t-category').value, 
+                classCtx: document.getElementById('t-class').value || 'General', 
+                dueDate: document.getElementById('t-date').value || new Date().toISOString().split('T')[0], 
+                priority: document.getElementById('t-priority').value, 
+                progress: 0, 
+                completed: false, 
+                repeatDays: repeatDays
+            });
+
+            // Reset Form
+            document.getElementById('t-title').value = ''; 
+            document.getElementById('t-class').value = ''; 
+            document.getElementById('t-date').value = '';
+            document.querySelectorAll('.day-badge').forEach(b => b.classList.remove('selected'));
+            
             renderTasks();
             saveToCloud();
         }
@@ -240,21 +290,45 @@
             const task = tasks.find(t => t.id === id);
             if (task) {
                 task.progress = parseInt(newProgress);
-                task.completed = (task.progress === 100);
-                renderTasks();
-                saveToCloud();
+                if (task.progress === 100 && !task.completed) {
+                    toggleComplete(id); // Trigger complete logic if slider hits 100
+                } else if (task.progress < 100 && task.completed) {
+                    task.completed = false; // Un-complete if slider is dragged back
+                    renderTasks();
+                    saveToCloud();
+                } else {
+                    renderTasks();
+                    saveToCloud();
+                }
             }
         }
 
         function toggleComplete(id) {
-            const task = tasks.find(t => t.id === id);
-            if (task) {
-                task.completed = !task.completed;
-                task.progress = task.completed ? 100 : 0;
-                if (task.completed && task.weekly) {
-                    let nextWeek = new Date(task.dueDate); nextWeek.setDate(nextWeek.getDate() + 7);
-                    tasks.push({ ...task, id: Date.now(), dueDate: nextWeek.toISOString().split('T')[0], progress: 0, completed: false });
+            const taskIndex = tasks.findIndex(t => t.id === id);
+            if (taskIndex > -1) {
+                const task = tasks[taskIndex];
+                
+                // If it's a repeating task being checked off
+                if (task.repeatDays && task.repeatDays.length > 0 && !task.completed) {
+                    // 1. Create a "Receipt" (a permanent completed record for this specific day)
+                    tasks.push({
+                        ...task,
+                        id: Date.now() + Math.random(), // Unique ID for receipt
+                        completed: true,
+                        progress: 100,
+                        repeatDays: [] // The receipt itself does NOT repeat
+                    });
+
+                    // 2. Roll the original task forward to the next scheduled day
+                    task.dueDate = getNextOccurrenceDate(task.dueDate, task.repeatDays);
+                    task.progress = 0; 
+                    task.completed = false;
+                } else {
+                    // Normal behavior for non-repeating tasks (or un-checking a task)
+                    task.completed = !task.completed;
+                    task.progress = task.completed ? 100 : 0;
                 }
+
                 renderTasks();
                 saveToCloud();
             }
@@ -263,10 +337,23 @@
         function addClassInfo() {
             const name = document.getElementById('ci-name').value;
             if (!name) return alert("Class name required!");
+
             classData.push({
-                id: Date.now(), name: name, prof: document.getElementById('ci-prof').value, email: document.getElementById('ci-email').value, mates: document.getElementById('ci-mates').value, syllabus: document.getElementById('ci-syllabus').value
+                id: Date.now(), 
+                name: name, 
+                prof: document.getElementById('ci-prof').value, 
+                email: document.getElementById('ci-email').value, 
+                mates: document.getElementById('ci-mates').value, 
+                syllabus: document.getElementById('ci-syllabus').value
             });
-            document.getElementById('ci-name').value = ''; document.getElementById('ci-prof').value = ''; document.getElementById('ci-email').value = ''; document.getElementById('ci-mates').value = ''; document.getElementById('ci-syllabus').value = '';
+
+            // Clear inputs
+            document.getElementById('ci-name').value = ''; 
+            document.getElementById('ci-prof').value = ''; 
+            document.getElementById('ci-email').value = ''; 
+            document.getElementById('ci-mates').value = ''; 
+            document.getElementById('ci-syllabus').value = '';
+            
             renderClasses();
             saveToCloud();
         }
@@ -277,7 +364,9 @@
             saveToCloud();
         }
 
-        // Canvas API
+        // ==========================================
+        // 4. CANVAS API
+        // ==========================================
         function toggleCanvasSettings() {
             const settings = document.getElementById('canvas-settings');
             settings.style.display = settings.style.display === 'none' ? 'grid' : 'none';
@@ -297,7 +386,7 @@
                     if (!tasks.find(t => t.title === taskTitle)) {
                         const isExam = taskTitle.toLowerCase().includes('exam') || taskTitle.toLowerCase().includes('quiz');
                         tasks.push({
-                            id: Date.now() + Math.random(), title: taskTitle, category: isExam ? "exam" : "school", classCtx: item.context_name ? item.context_name.split(' ')[0] : "Canvas", dueDate: item.assignment && item.assignment.due_at ? item.assignment.due_at.split('T')[0] : '9999-12-31', priority: "High", progress: 0, completed: false, weekly: false
+                            id: Date.now() + Math.random(), title: taskTitle, category: isExam ? "exam" : "school", classCtx: item.context_name ? item.context_name.split(' ')[0] : "Canvas", dueDate: item.assignment && item.assignment.due_at ? item.assignment.due_at.split('T')[0] : '9999-12-31', priority: "High", progress: 0, completed: false, repeatDays: []
                         });
                         addedCount++;
                     }
@@ -309,21 +398,31 @@
             }
         }
 
-        // Render functions
+        // ==========================================
+        // 5. RENDER FUNCTIONS
+        // ==========================================
         function renderTasks() {
             const sortedTasks = [...tasks].sort((a, b) => {
                 if (a.dueDate !== b.dueDate) return new Date(a.dueDate) - new Date(b.dueDate);
                 return a.progress - b.progress;
             });
-            const allList = document.getElementById('all-tasks-list'); const schoolList = document.getElementById('school-tasks-list'); const examsList = document.getElementById('exams-list'); const personalList = document.getElementById('personal-tasks-list');
+            
+            const allList = document.getElementById('all-tasks-list'); 
+            const schoolList = document.getElementById('school-tasks-list'); 
+            const examsList = document.getElementById('exams-list'); 
+            const personalList = document.getElementById('personal-tasks-list');
+            
             allList.innerHTML = ''; schoolList.innerHTML = ''; examsList.innerHTML = ''; personalList.innerHTML = '';
 
             sortedTasks.forEach(task => {
+                // Determine if it repeats to show an icon
+                const isRepeating = task.repeatDays && task.repeatDays.length > 0;
+                
                 const taskHTML = `
                     <div class="task-item ${task.completed ? 'completed' : ''}">
                         <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} onchange="toggleComplete(${task.id})">
                         <div class="task-details">
-                            <div class="task-title">${task.title} ${task.weekly ? '🔁' : ''}</div>
+                            <div class="task-title">${task.title} ${isRepeating ? '🔁' : ''}</div>
                             <div class="task-meta">
                                 <span class="tag">${task.classCtx}</span>
                                 <span class="tag" style="color: ${task.priority === 'High' ? '#ef4444' : 'inherit'}">Priority: ${task.priority}</span>
@@ -335,6 +434,7 @@
                             <span class="progress-text">${task.progress}%</span>
                         </div>
                     </div>`;
+                
                 allList.innerHTML += taskHTML;
                 if (task.category === 'school') schoolList.innerHTML += taskHTML;
                 else if (task.category === 'exam') examsList.innerHTML += taskHTML;
@@ -346,16 +446,20 @@
             const grid = document.getElementById('class-grid');
             grid.innerHTML = '';
             classData.forEach(c => {
-                let syllabusContent = c.syllabus;
-                if(syllabusContent.startsWith('http')) syllabusContent = `<a href="${syllabusContent}" target="_blank" style="color: var(--canvas-blue);">View Syllabus Link</a>`;
+                // Auto-linkify if the user pasted a raw URL
+                let syllabusContent = c.syllabus || 'None provided.';
+                if (syllabusContent.startsWith('http')) {
+                    syllabusContent = `<a href="${syllabusContent}" target="_blank" style="color: var(--canvas-blue); text-decoration: underline;">View Syllabus Link</a>`;
+                }
+                
                 grid.innerHTML += `
                     <div class="class-card">
                         <h3>${c.name}</h3>
                         <div class="class-detail"><strong>Professor:</strong> ${c.prof || 'N/A'}</div>
                         <div class="class-detail"><strong>Email:</strong> <a href="mailto:${c.email}" style="color: var(--text-main);">${c.email || 'N/A'}</a></div>
                         <div class="class-detail"><strong>Classmates:</strong> ${c.mates || 'N/A'}</div>
-                        <div class="class-detail" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
-                            <strong>Syllabus/Notes:</strong><br>${syllabusContent || 'None provided.'}
+                        <div class="class-detail" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); overflow-wrap: break-word; white-space: pre-wrap;">
+                            <strong>Syllabus / Notes:</strong><br>${syllabusContent}
                         </div>
                         <button class="danger" style="margin-top: 15px; width: 100%; padding: 8px;" onclick="deleteClass(${c.id})">Remove Class</button>
                     </div>`;
