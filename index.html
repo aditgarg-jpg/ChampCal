@@ -47,7 +47,7 @@
         button.primary:hover { background-color: var(--accent-hover); }
         button.danger { background-color: #ef4444; color: white; border: none; cursor: pointer; }
 
-        /* Day Selector Styles (Google Calendar Style) */
+        /* Day Selector Styles */
         .day-selector { display: flex; gap: 6px; margin-top: 2px; }
         .day-badge { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; background-color: var(--bg-main); border: 1px solid var(--border); border-radius: 50%; font-size: 12px; cursor: pointer; user-select: none; transition: all 0.15s ease; color: var(--text-muted); }
         .day-badge.selected { background-color: var(--accent); color: white; border-color: var(--accent); }
@@ -107,14 +107,29 @@
             <div class="form-group"><label>Category</label>
                 <select id="t-category"><option value="school">Assignment</option><option value="exam">Exam/Quiz</option><option value="personal">Personal</option><option value="event">Meeting/Event</option></select>
             </div>
-            <div class="form-group"><label>Class/Context</label><input type="text" id="t-class" placeholder="e.g. Math 101"></div>
-            <div class="form-group"><label>Start / Due Date</label><input type="date" id="t-date"></div>
+            
+            <div class="form-group"><label>Class/Context</label>
+                <select id="t-class">
+                    <option value="General">None / General</option>
+                    </select>
+            </div>
+            
+            <div class="form-group"><label>Due Date</label><input type="date" id="t-date"></div>
             <div class="form-group"><label>Priority</label>
                 <select id="t-priority"><option value="High">High</option><option value="Medium" selected>Medium</option><option value="Low">Low</option></select>
             </div>
             
             <div class="form-group" style="grid-column: 1 / -1;">
-                <label>Repeats on specific days (Optional):</label>
+                <label>Repeat:</label>
+                <select id="t-repeat-type" onchange="toggleRepeatUI()" style="width: 250px;">
+                    <option value="none">Does not repeat</option>
+                    <option value="weekly">Weekly (Every week)</option>
+                    <option value="custom">Custom days of the week</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="custom-days-ui" style="display: none; grid-column: 1 / -1;">
+                <label>Select days:</label>
                 <div class="day-selector">
                     <div class="day-badge" data-day="1" onclick="toggleDaySelection(this)">M</div>
                     <div class="day-badge" data-day="2" onclick="toggleDaySelection(this)">T</div>
@@ -125,6 +140,20 @@
                     <div class="day-badge" data-day="0" onclick="toggleDaySelection(this)">Su</div>
                 </div>
             </div>
+
+            <div class="form-group" id="repeat-ends-ui" style="display: none; grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 15px;">
+                <div>
+                    <label>Ends:</label>
+                    <select id="t-ends-type" onchange="toggleEndsUI()">
+                        <option value="never">Never</option>
+                        <option value="on">On date</option>
+                    </select>
+                </div>
+                <div id="ends-date-container" style="display: none;">
+                    <label>&nbsp;</label> <input type="date" id="t-until">
+                </div>
+            </div>
+
             <button class="primary" onclick="addTask()" style="grid-column: 1 / -1; margin-top: 10px;">Add Task</button>
         </div>
 
@@ -180,7 +209,6 @@
         // ==========================================
         const firebaseConfig = { apiKey: "AIzaSyDezfkz8PrgHU7s8U9ddMRT1hKYSHmJ0x8", authDomain: "mynotionapp-8ef0d.firebaseapp.com", projectId: "mynotionapp-8ef0d", storageBucket: "mynotionapp-8ef0d.firebasestorage.app", messagingSenderId: "666058412818", appId: "1:666058412818:web:8bb86e8f18db1a358659cb", measurementId: "G-SQFBEB33CP" };
         
-        // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
@@ -199,8 +227,11 @@
                     tasks = doc.data().tasks || [];
                     classData = doc.data().classData || [];
                 }
+                
+                updateClassDropdown();
                 renderTasks();
                 renderClasses();
+                
                 document.getElementById('loading-overlay').style.opacity = '0';
                 setTimeout(() => document.getElementById('loading-overlay').style.display = 'none', 300);
             } catch (error) {
@@ -230,25 +261,57 @@
             event.target.classList.add('active');
         }
 
+        function updateClassDropdown() {
+            const select = document.getElementById('t-class');
+            select.innerHTML = '<option value="General">None / General</option>';
+            classData.forEach(c => {
+                select.innerHTML += `<option value="${c.name}">${c.name}</option>`;
+            });
+        }
+
+        function toggleRepeatUI() {
+            const type = document.getElementById('t-repeat-type').value;
+            const customUI = document.getElementById('custom-days-ui');
+            const endsUI = document.getElementById('repeat-ends-ui');
+            
+            if (type === 'none') {
+                customUI.style.display = 'none';
+                endsUI.style.display = 'none';
+            } else if (type === 'weekly') {
+                customUI.style.display = 'none';
+                endsUI.style.display = 'flex';
+            } else if (type === 'custom') {
+                customUI.style.display = 'block';
+                endsUI.style.display = 'flex';
+            }
+        }
+
+        function toggleEndsUI() {
+            const endsType = document.getElementById('t-ends-type').value;
+            document.getElementById('ends-date-container').style.display = endsType === 'on' ? 'block' : 'none';
+        }
+
         function toggleDaySelection(element) {
             element.classList.toggle('selected');
         }
 
-        // Find the next date that matches one of the selected repeating days
-        function getNextOccurrenceDate(currentDateStr, repeatDaysArr) {
-            // Treat the date string as local time to avoid timezone jumping
+        // Date Helpers
+        function getNextWeeklyDate(currentDateStr) {
             const parts = currentDateStr.split('-');
-            let date = new Date(parts[0], parts[1] - 1, parts[2]); 
-            if (isNaN(date.getTime())) date = new Date();
+            let d = new Date(parts[0], parts[1] - 1, parts[2]);
+            d.setDate(d.getDate() + 7);
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
+        function getNextCustomDate(currentDateStr, repeatDaysArr) {
+            const parts = currentDateStr.split('-');
+            let d = new Date(parts[0], parts[1] - 1, parts[2]); 
+            if (isNaN(d.getTime())) d = new Date();
 
             for (let i = 1; i <= 7; i++) {
-                date.setDate(date.getDate() + 1);
-                if (repeatDaysArr.includes(date.getDay())) {
-                    // Format back to YYYY-MM-DD
-                    const y = date.getFullYear();
-                    const m = String(date.getMonth() + 1).padStart(2, '0');
-                    const d = String(date.getDate()).padStart(2, '0');
-                    return `${y}-${m}-${d}`;
+                d.setDate(d.getDate() + 1);
+                if (repeatDaysArr.includes(d.getDay())) {
+                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                 }
             }
             return currentDateStr;
@@ -258,29 +321,46 @@
             const title = document.getElementById('t-title').value;
             if (!title) return alert("Title is required!");
             
-            // Gather selected repeat days
+            const repeatType = document.getElementById('t-repeat-type').value;
             let repeatDays = [];
-            document.querySelectorAll('.day-badge.selected').forEach(badge => {
-                repeatDays.push(parseInt(badge.getAttribute('data-day')));
-            });
+            if (repeatType === 'custom') {
+                document.querySelectorAll('.day-badge.selected').forEach(badge => {
+                    repeatDays.push(parseInt(badge.getAttribute('data-day')));
+                });
+                if (repeatDays.length === 0) return alert("Please select at least one day for custom repeating.");
+            }
+
+            let repeatUntil = null;
+            if (repeatType !== 'none') {
+                if (document.getElementById('t-ends-type').value === 'on') {
+                    repeatUntil = document.getElementById('t-until').value;
+                    if (!repeatUntil) return alert("Please select an end date.");
+                }
+            }
 
             tasks.push({
                 id: Date.now(), 
                 title: title, 
                 category: document.getElementById('t-category').value, 
-                classCtx: document.getElementById('t-class').value || 'General', 
+                classCtx: document.getElementById('t-class').value, 
                 dueDate: document.getElementById('t-date').value || new Date().toISOString().split('T')[0], 
                 priority: document.getElementById('t-priority').value, 
                 progress: 0, 
                 completed: false, 
-                repeatDays: repeatDays
+                repeatType: repeatType,
+                repeatDays: repeatDays,
+                repeatUntil: repeatUntil
             });
 
-            // Reset Form
+            // Reset Form Defaults
             document.getElementById('t-title').value = ''; 
-            document.getElementById('t-class').value = ''; 
             document.getElementById('t-date').value = '';
+            document.getElementById('t-repeat-type').value = 'none';
+            document.getElementById('t-ends-type').value = 'never';
+            document.getElementById('t-until').value = '';
             document.querySelectorAll('.day-badge').forEach(b => b.classList.remove('selected'));
+            toggleRepeatUI();
+            toggleEndsUI();
             
             renderTasks();
             saveToCloud();
@@ -291,9 +371,9 @@
             if (task) {
                 task.progress = parseInt(newProgress);
                 if (task.progress === 100 && !task.completed) {
-                    toggleComplete(id); // Trigger complete logic if slider hits 100
+                    toggleComplete(id);
                 } else if (task.progress < 100 && task.completed) {
-                    task.completed = false; // Un-complete if slider is dragged back
+                    task.completed = false;
                     renderTasks();
                     saveToCloud();
                 } else {
@@ -308,23 +388,39 @@
             if (taskIndex > -1) {
                 const task = tasks[taskIndex];
                 
-                // If it's a repeating task being checked off
-                if (task.repeatDays && task.repeatDays.length > 0 && !task.completed) {
-                    // 1. Create a "Receipt" (a permanent completed record for this specific day)
-                    tasks.push({
-                        ...task,
-                        id: Date.now() + Math.random(), // Unique ID for receipt
-                        completed: true,
-                        progress: 100,
-                        repeatDays: [] // The receipt itself does NOT repeat
-                    });
+                if (task.repeatType && task.repeatType !== 'none' && !task.completed) {
+                    // Determine next date based on user's choice
+                    let nextDateStr = '';
+                    if (task.repeatType === 'weekly') {
+                        nextDateStr = getNextWeeklyDate(task.dueDate);
+                    } else if (task.repeatType === 'custom') {
+                        nextDateStr = getNextCustomDate(task.dueDate, task.repeatDays);
+                    }
 
-                    // 2. Roll the original task forward to the next scheduled day
-                    task.dueDate = getNextOccurrenceDate(task.dueDate, task.repeatDays);
-                    task.progress = 0; 
-                    task.completed = false;
+                    // Check if the next date is past the "Ends on" limit
+                    if (task.repeatUntil && nextDateStr > task.repeatUntil) {
+                        // Limit reached. Complete permanently.
+                        task.completed = true;
+                        task.progress = 100;
+                    } else {
+                        // Create permanent receipt of this exact event
+                        tasks.push({
+                            ...task,
+                            id: Date.now() + Math.random(),
+                            completed: true,
+                            progress: 100,
+                            repeatType: 'none',
+                            repeatDays: [],
+                            repeatUntil: null
+                        });
+
+                        // Roll main original task forward
+                        task.dueDate = nextDateStr;
+                        task.progress = 0; 
+                        task.completed = false;
+                    }
                 } else {
-                    // Normal behavior for non-repeating tasks (or un-checking a task)
+                    // Standard task checkoff
                     task.completed = !task.completed;
                     task.progress = task.completed ? 100 : 0;
                 }
@@ -347,19 +443,20 @@
                 syllabus: document.getElementById('ci-syllabus').value
             });
 
-            // Clear inputs
             document.getElementById('ci-name').value = ''; 
             document.getElementById('ci-prof').value = ''; 
             document.getElementById('ci-email').value = ''; 
             document.getElementById('ci-mates').value = ''; 
             document.getElementById('ci-syllabus').value = '';
             
+            updateClassDropdown();
             renderClasses();
             saveToCloud();
         }
 
         function deleteClass(id) {
             classData = classData.filter(c => c.id !== id);
+            updateClassDropdown();
             renderClasses();
             saveToCloud();
         }
@@ -386,7 +483,7 @@
                     if (!tasks.find(t => t.title === taskTitle)) {
                         const isExam = taskTitle.toLowerCase().includes('exam') || taskTitle.toLowerCase().includes('quiz');
                         tasks.push({
-                            id: Date.now() + Math.random(), title: taskTitle, category: isExam ? "exam" : "school", classCtx: item.context_name ? item.context_name.split(' ')[0] : "Canvas", dueDate: item.assignment && item.assignment.due_at ? item.assignment.due_at.split('T')[0] : '9999-12-31', priority: "High", progress: 0, completed: false, repeatDays: []
+                            id: Date.now() + Math.random(), title: taskTitle, category: isExam ? "exam" : "school", classCtx: item.context_name ? item.context_name.split(' ')[0] : "Canvas", dueDate: item.assignment && item.assignment.due_at ? item.assignment.due_at.split('T')[0] : '9999-12-31', priority: "High", progress: 0, completed: false, repeatType: 'none', repeatDays: []
                         });
                         addedCount++;
                     }
@@ -415,8 +512,7 @@
             allList.innerHTML = ''; schoolList.innerHTML = ''; examsList.innerHTML = ''; personalList.innerHTML = '';
 
             sortedTasks.forEach(task => {
-                // Determine if it repeats to show an icon
-                const isRepeating = task.repeatDays && task.repeatDays.length > 0;
+                const isRepeating = task.repeatType && task.repeatType !== 'none';
                 
                 const taskHTML = `
                     <div class="task-item ${task.completed ? 'completed' : ''}">
@@ -446,7 +542,6 @@
             const grid = document.getElementById('class-grid');
             grid.innerHTML = '';
             classData.forEach(c => {
-                // Auto-linkify if the user pasted a raw URL
                 let syllabusContent = c.syllabus || 'None provided.';
                 if (syllabusContent.startsWith('http')) {
                     syllabusContent = `<a href="${syllabusContent}" target="_blank" style="color: var(--canvas-blue); text-decoration: underline;">View Syllabus Link</a>`;
