@@ -13,6 +13,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore-compat.js"></script>
 
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
+
     <style>
         /* Dark Mode Palette */
         :root {
@@ -185,6 +188,10 @@
 
         <div id="dashboard" class="page active">
             <h1>Dashboard</h1>
+            <button id="gcal-auth-btn" class="primary" style="background-color: #4285F4; margin-bottom: 20px; width: auto;" onclick="handleAuthClick()">
+  Connect Google Calendar
+</button>
+<span id="gcal-status" style="margin-left: 10px; font-size: 14px; color: var(--progress-fill); display: none;">✓ Connected</span>
             <div class="split-view">
                 <div><h3>Pending Tasks</h3><div id="all-tasks-list" class="task-list"></div></div>
                 <div>
@@ -276,6 +283,86 @@
         // YOUR FIREBASE CONFIG HERE
         // ==========================================
         const firebaseConfig = { apiKey: "AIzaSyDezfkz8PrgHU7s8U9ddMRT1hKYSHmJ0x8", authDomain: "mynotionapp-8ef0d.firebaseapp.com", projectId: "mynotionapp-8ef0d", storageBucket: "mynotionapp-8ef0d.firebasestorage.app", messagingSenderId: "666058412818", appId: "1:666058412818:web:8bb86e8f18db1a358659cb", measurementId: "G-SQFBEB33CP" };
+
+        // ==========================================
+// GOOGLE CALENDAR API CONFIG
+// ==========================================
+const CLIENT_ID = '511795919329-l7qrut48rusq9mkh7nhl73frlfi17qfn.apps.googleusercontent.com';
+const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
+const SCOPES = 'https://www.googleapis.com/auth/calendar.events';
+
+let tokenClient;
+let gapiInited = false;
+let gisInited = false;
+
+// Load the Google API Client
+function gapiLoaded() {
+    gapi.load('client', initializeGapiClient);
+}
+
+async function initializeGapiClient() {
+    await gapi.client.init({
+        discoveryDocs: [DISCOVERY_DOC],
+    });
+    gapiInited = true;
+}
+
+// Load the Google Identity Services Client
+function gisLoaded() {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: '', // defined later in auth
+    });
+    gisInited = true;
+}
+
+// Triggered when clicking "Connect Google Calendar"
+function handleAuthClick() {
+    tokenClient.callback = async (resp) => {
+        if (resp.error !== undefined) {
+            throw (resp);
+        }
+        document.getElementById('gcal-auth-btn').style.display = 'none';
+        document.getElementById('gcal-status').style.display = 'inline-block';
+    };
+
+    if (gapi.client.getToken() === null) {
+        tokenClient.requestAccessToken({prompt: 'consent'});
+    } else {
+        tokenClient.requestAccessToken({prompt: ''});
+    }
+}
+
+// The function that pushes the task to Google
+async function pushToGoogleCalendar(taskTitle, taskDate) {
+    if (!gapi.client.getToken()) {
+        console.log("Google Calendar not connected.");
+        return; // Silently fail if they haven't connected their calendar
+    }
+
+    const event = {
+        'summary': taskTitle,
+        'start': {
+            'date': taskDate, // YYYY-MM-DD format for all-day events
+            'timeZone': 'America/New_York'
+        },
+        'end': {
+            'date': taskDate, 
+            'timeZone': 'America/New_York'
+        }
+    };
+
+    try {
+        const request = await gapi.client.calendar.events.insert({
+            'calendarId': 'primary',
+            'resource': event
+        });
+        console.log("Event created in Google Calendar: ", request.result.htmlLink);
+    } catch (err) {
+        console.error("Error pushing to Google Calendar", err);
+    }
+}
         
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
@@ -392,6 +479,9 @@
                 priority: document.getElementById('t-priority').value, progress: 0, completed: false, 
                 repeatType: repeatType, repeatDays: repeatDays, repeatUntil: repeatUntil
             });
+
+            // Push the new task to Google Calendar
+pushToGoogleCalendar(title, document.getElementById('t-date').value || new Date().toISOString().split('T')[0]);
 
             // Reset and close
             document.getElementById('t-title').value = ''; document.getElementById('t-date').value = '';
@@ -530,6 +620,12 @@
         }
 
         loadDataFromCloud();
+        // Initialize Google Scripts on window load
+window.onload = function() {
+    gapiLoaded();
+    gisLoaded();
+};
     </script>
+    
 </body>
 </html>
