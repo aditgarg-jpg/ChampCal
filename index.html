@@ -32,27 +32,36 @@
         .nav-btn.active { background-color: var(--bg-hover); color: var(--text-main); font-weight: bold; }
 
         /* Main Content */
-        .main-content { flex: 1; padding: 40px 30px 30px; overflow-y: auto; }
+        .main-content { flex: 1; padding: 40px 30px 30px; overflow-y: auto; position: relative; }
         .page { display: none; }
         .page.active { display: block; }
         h1, h2, h3 { margin-bottom: 20px; font-weight: 500; }
         
-        /* Forms */
-        .task-form { background-color: var(--bg-card); padding: 20px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 30px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; align-items: end; }
-        /* Target the class info layout specifically for desktop grids */
-        .class-info-form { grid-template-columns: 1fr 1fr; }
+        /* Floating Action Button & Modal */
+        .fab { position: fixed; bottom: 30px; right: 30px; width: 60px; height: 60px; background-color: var(--accent); color: white; border: none; border-radius: 50%; font-size: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); cursor: pointer; z-index: 100; transition: transform 0.2s; display: flex; justify-content: center; align-items: center; }
+        .fab:hover { transform: scale(1.05); background-color: var(--accent-hover); }
         
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(3px); display: none; justify-content: center; align-items: center; z-index: 999; }
+        .modal-content { background-color: var(--bg-main); padding: 30px; border-radius: 12px; border: 1px solid var(--border); width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
+        
+        /* Forms */
+        .task-form { display: grid; grid-template-columns: 1fr; gap: 15px; }
         .form-group { display: flex; flex-direction: column; gap: 5px; width: 100%; }
         .form-group label { font-size: 12px; color: var(--text-muted); }
-        input, select, button, textarea { padding: 8px 12px; background-color: var(--bg-main); border: 1px solid var(--border); color: var(--text-main); border-radius: 4px; width: 100%; font-size: 14px; }
+        input, select, button, textarea { padding: 10px 12px; background-color: var(--bg-card); border: 1px solid var(--border); color: var(--text-main); border-radius: 6px; width: 100%; font-size: 14px; }
         
         button.primary { background-color: var(--accent); color: white; border: none; cursor: pointer; font-weight: 500; }
         button.primary:hover { background-color: var(--accent-hover); }
         button.danger { background-color: #ef4444; color: white; border: none; cursor: pointer; }
+        
+        /* Calendar View Toggles */
+        .cal-toggles { display: flex; gap: 10px; margin-bottom: 10px; }
+        .cal-btn { padding: 6px 12px; font-size: 12px; background-color: var(--bg-hover); color: var(--text-main); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
+        .cal-btn:hover { background-color: var(--border); }
 
         /* Day Selector Styles */
         .day-selector { display: flex; gap: 6px; margin-top: 2px; flex-wrap: wrap; }
-        .day-badge { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; background-color: var(--bg-main); border: 1px solid var(--border); border-radius: 50%; font-size: 12px; cursor: pointer; user-select: none; transition: all 0.15s ease; color: var(--text-muted); }
+        .day-badge { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; background-color: var(--bg-card); border: 1px solid var(--border); border-radius: 50%; font-size: 12px; cursor: pointer; user-select: none; transition: all 0.15s ease; color: var(--text-muted); }
         .day-badge.selected { background-color: var(--accent); color: white; border-color: var(--accent); }
 
         /* Task List */
@@ -78,10 +87,10 @@
         .class-detail { margin-bottom: 8px; font-size: 14px; overflow-wrap: break-word; }
 
         /* Calendar Embeds */
-        .calendar-container { width: 100%; height: 500px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); margin-top: 20px; }
+        .calendar-container { width: 100%; height: 500px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
         iframe { width: 100%; height: 100%; }
         
-        /* Mobile Responsiveness Rules */
+        /* Mobile Responsiveness */
         .split-view { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         @media (max-width: 900px) {
             body { flex-direction: column; }
@@ -89,9 +98,7 @@
             .nav-btn { padding: 8px 12px; font-size: 13px; }
             .main-content { padding: 20px 15px; }
             .split-view { grid-template-columns: 1fr; }
-            .task-form { grid-template-columns: 1fr !important; } /* Force 1 column on mobile layout completely */
-            .form-group { grid-column: auto !important; } /* Stop elements from forcing wide columns */
-            button.primary { grid-column: auto !important; }
+            .fab { bottom: 20px; right: 20px; width: 50px; height: 50px; font-size: 24px; }
         }
         
         #loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-main); display: flex; justify-content: center; align-items: center; z-index: 9999; font-size: 20px; color: var(--accent); transition: opacity 0.3s; }
@@ -109,67 +116,85 @@
     </div>
 
     <div class="main-content">
-        <div class="task-form" id="global-task-form">
-            <div class="form-group"><label>Title</label><input type="text" id="t-title" placeholder="e.g. Weekly Homework Log"></div>
-            <div class="form-group"><label>Category</label>
-                <select id="t-category"><option value="school">Assignment</option><option value="exam">Exam/Quiz</option><option value="personal">Personal</option><option value="event">Meeting/Event</option></select>
-            </div>
-            
-            <div class="form-group"><label>Class/Context</label>
-                <select id="t-class">
-                    <option value="General">None / General</option>
-                </select>
-            </div>
-            
-            <div class="form-group"><label>Due Date</label><input type="date" id="t-date"></div>
-            <div class="form-group"><label>Priority</label>
-                <select id="t-priority"><option value="High">High</option><option value="Medium" selected>Medium</option><option value="Low">Low</option></select>
-            </div>
-            
-            <div class="form-group" style="grid-column: 1 / -1;">
-                <label>Repeat:</label>
-                <select id="t-repeat-type" onchange="toggleRepeatUI()">
-                    <option value="none">Does not repeat</option>
-                    <option value="weekly">Weekly (Every week)</option>
-                    <option value="custom">Custom days of the week</option>
-                </select>
-            </div>
+        
+        <button class="fab" onclick="toggleModal('task-modal')">+</button>
 
-            <div class="form-group" id="custom-days-ui" style="display: none; grid-column: 1 / -1;">
-                <label>Select days:</label>
-                <div class="day-selector">
-                    <div class="day-badge" data-day="1" onclick="toggleDaySelection(this)">M</div>
-                    <div class="day-badge" data-day="2" onclick="toggleDaySelection(this)">T</div>
-                    <div class="day-badge" data-day="3" onclick="toggleDaySelection(this)">W</div>
-                    <div class="day-badge" data-day="4" onclick="toggleDaySelection(this)">Th</div>
-                    <div class="day-badge" data-day="5" onclick="toggleDaySelection(this)">F</div>
-                    <div class="day-badge" data-day="6" onclick="toggleDaySelection(this)">S</div>
-                    <div class="day-badge" data-day="0" onclick="toggleDaySelection(this)">Su</div>
+        <div class="modal-overlay" id="task-modal">
+            <div class="modal-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3>Add New Task</h3>
+                    <button onclick="toggleModal('task-modal')" style="background:none; border:none; color:var(--text-muted); font-size:20px; cursor:pointer; width:auto;">&times;</button>
+                </div>
+                
+                <div class="task-form">
+                    <div class="form-group"><label>Title</label><input type="text" id="t-title" placeholder="e.g. Weekly Homework Log"></div>
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <div class="form-group"><label>Category</label>
+                            <select id="t-category"><option value="school">Assignment</option><option value="exam">Exam/Quiz</option><option value="personal">Personal</option><option value="event">Meeting/Event</option></select>
+                        </div>
+                        <div class="form-group"><label>Class/Context</label>
+                            <select id="t-class"><option value="General">None / General</option></select>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <div class="form-group"><label>Due Date</label><input type="date" id="t-date"></div>
+                        <div class="form-group"><label>Priority</label>
+                            <select id="t-priority"><option value="High">High</option><option value="Medium" selected>Medium</option><option value="Low">Low</option></select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Repeat:</label>
+                        <select id="t-repeat-type" onchange="toggleRepeatUI()">
+                            <option value="none">Does not repeat</option>
+                            <option value="weekly">Weekly (Every week)</option>
+                            <option value="custom">Custom days of the week</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="custom-days-ui" style="display: none;">
+                        <label>Select days:</label>
+                        <div class="day-selector">
+                            <div class="day-badge" data-day="1" onclick="toggleDaySelection(this)">M</div>
+                            <div class="day-badge" data-day="2" onclick="toggleDaySelection(this)">T</div>
+                            <div class="day-badge" data-day="3" onclick="toggleDaySelection(this)">W</div>
+                            <div class="day-badge" data-day="4" onclick="toggleDaySelection(this)">Th</div>
+                            <div class="day-badge" data-day="5" onclick="toggleDaySelection(this)">F</div>
+                            <div class="day-badge" data-day="6" onclick="toggleDaySelection(this)">S</div>
+                            <div class="day-badge" data-day="0" onclick="toggleDaySelection(this)">Su</div>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="repeat-ends-ui" style="display: none;">
+                        <label>Ends:</label>
+                        <div style="display: flex; gap: 10px;">
+                            <select id="t-ends-type" onchange="toggleEndsUI()">
+                                <option value="never">Never</option>
+                                <option value="on">On date</option>
+                            </select>
+                            <input type="date" id="t-until" style="display: none;">
+                        </div>
+                    </div>
+
+                    <button class="primary" onclick="addTask()" style="margin-top: 10px;">Save Task</button>
                 </div>
             </div>
-
-            <div class="form-group" id="repeat-ends-ui" style="display: none; grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 15px;">
-                <div>
-                    <label>Ends:</label>
-                    <select id="t-ends-type" onchange="toggleEndsUI()">
-                        <option value="never">Never</option>
-                        <option value="on">On date</option>
-                    </select>
-                </div>
-                <div id="ends-date-container" style="display: none; flex: 1;">
-                    <label>&nbsp;</label>
-                    <input type="date" id="t-until">
-                </div>
-            </div>
-
-            <button class="primary" onclick="addTask()" style="grid-column: 1 / -1; margin-top: 10px;">Add Task</button>
         </div>
 
         <div id="dashboard" class="page active">
             <h1>Dashboard</h1>
             <div class="split-view">
                 <div><h3>Pending Tasks</h3><div id="all-tasks-list" class="task-list"></div></div>
-                <div><h3>Overview Calendar</h3><div class="calendar-container"><iframe src="https://calendar.google.com/calendar/embed?src=aditgarg%40umich.edu&ctz=America%2FNew_York" frameborder="0" scrolling="no"></iframe></div></div>
+                <div>
+                    <h3>Overview Calendar</h3>
+                    <div class="cal-toggles">
+                        <button class="cal-btn" onclick="changeCalView('dash-cal', 'WEEK')">Week View</button>
+                        <button class="cal-btn" onclick="changeCalView('dash-cal', 'MONTH')">Month View</button>
+                    </div>
+                    <div class="calendar-container"><iframe id="dash-cal" src="https://calendar.google.com/calendar/embed?src=aditgarg%40umich.edu&ctz=America%2FNew_York" frameborder="0" scrolling="no"></iframe></div>
+                </div>
             </div>
         </div>
 
@@ -178,27 +203,55 @@
                 <h1>Class Assignments</h1>
                 <button class="primary" onclick="toggleCanvasSettings()" style="background-color: var(--canvas-blue); width: auto;">⬇ Import from Canvas</button>
             </div>
-            <div id="canvas-settings" class="task-form" style="display: none; background-color: #1e1e20; border-color: var(--canvas-blue);">
-                <div class="form-group"><label>Canvas Domain</label><input type="text" id="c-domain" value="canvas.umich.edu"></div>
-                <div class="form-group"><label>Canvas API Token</label><input type="password" id="c-token" placeholder="Paste Token Here"></div>
-                <button class="primary" onclick="fetchCanvasData()" style="background-color: var(--canvas-blue); height: 35px;">Sync Now</button>
+            
+            <div id="canvas-settings" class="modal-overlay">
+                <div class="modal-content">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3>Canvas Import</h3>
+                        <button onclick="toggleCanvasSettings()" style="background:none; border:none; color:var(--text-muted); font-size:20px; cursor:pointer; width:auto;">&times;</button>
+                    </div>
+                    <div class="form-group"><label>Canvas Domain</label><input type="text" id="c-domain" value="canvas.umich.edu"></div>
+                    <div class="form-group" style="margin-top: 10px;"><label>Canvas API Token</label><input type="password" id="c-token" placeholder="Paste Token Here"></div>
+                    <button class="primary" onclick="fetchCanvasData()" style="background-color: var(--canvas-blue); margin-top: 15px;">Sync Now</button>
+                </div>
             </div>
+
             <div class="split-view">
                 <div><h3>Exams & Quizzes</h3><div id="exams-list" class="task-list"></div><h3>Assignments</h3><div id="school-tasks-list" class="task-list"></div></div>
-                <div><h3>Class Calendar</h3><div class="calendar-container"><iframe src="https://calendar.google.com/calendar/embed?src=c_8b51ece401e6feea308cb3e180c776e458527a856c21d1e2bd225be9e8bdd0aa%40group.calendar.google.com&ctz=America%2FNew_York" frameborder="0" scrolling="no"></iframe></div></div>
+                <div>
+                    <h3>Class Calendar</h3>
+                    <div class="cal-toggles">
+                        <button class="cal-btn" onclick="changeCalView('class-cal', 'WEEK')">Week View</button>
+                        <button class="cal-btn" onclick="changeCalView('class-cal', 'MONTH')">Month View</button>
+                    </div>
+                    <div class="calendar-container"><iframe id="class-cal" src="https://calendar.google.com/calendar/embed?src=c_8b51ece401e6feea308cb3e180c776e458527a856c21d1e2bd225be9e8bdd0aa%40group.calendar.google.com&ctz=America%2FNew_York" frameborder="0" scrolling="no"></iframe></div>
+                </div>
             </div>
         </div>
 
         <div id="classinfo" class="page">
-            <h1>Class Information</h1>
-            <div class="task-form class-info-form">
-                <div class="form-group"><label>Class Name</label><input type="text" id="ci-name"></div>
-                <div class="form-group"><label>Professor Name</label><input type="text" id="ci-prof"></div>
-                <div class="form-group"><label>Professor Email</label><input type="email" id="ci-email"></div>
-                <div class="form-group"><label>Notable Classmates</label><input type="text" id="ci-mates"></div>
-                <div class="form-group" style="grid-column: 1 / -1;"><label>Paste Syllabus Link / General Notes</label><textarea id="ci-syllabus" rows="3"></textarea></div>
-                <button class="primary" onclick="addClassInfo()" style="grid-column: 1 / -1;">Save Class Info</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h1>Class Information</h1>
+                <button class="primary" onclick="toggleModal('class-modal')" style="width: auto;">+ New Class</button>
             </div>
+            
+            <div class="modal-overlay" id="class-modal">
+                <div class="modal-content">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3>Add Class Info</h3>
+                        <button onclick="toggleModal('class-modal')" style="background:none; border:none; color:var(--text-muted); font-size:20px; cursor:pointer; width:auto;">&times;</button>
+                    </div>
+                    <div class="task-form">
+                        <div class="form-group"><label>Class Name</label><input type="text" id="ci-name"></div>
+                        <div class="form-group"><label>Professor Name</label><input type="text" id="ci-prof"></div>
+                        <div class="form-group"><label>Professor Email</label><input type="email" id="ci-email"></div>
+                        <div class="form-group"><label>Notable Classmates</label><input type="text" id="ci-mates"></div>
+                        <div class="form-group"><label>Paste Syllabus Link / Notes</label><textarea id="ci-syllabus" rows="3"></textarea></div>
+                        <button class="primary" onclick="addClassInfo()">Save Class</button>
+                    </div>
+                </div>
+            </div>
+
             <div id="class-grid" class="class-grid"></div>
         </div>
 
@@ -206,7 +259,14 @@
             <h1>Personal Tasks & Events</h1>
             <div class="split-view">
                 <div><h3>Personal Tasks & Meetings</h3><div id="personal-tasks-list" class="task-list"></div></div>
-                <div><h3>Events Calendar</h3><div class="calendar-container"><iframe src="https://calendar.google.com/calendar/embed?src=c_fe4ba42333be7e0858e46e51142953f0c94fad8e94923765c5e2e80d88b3608d%40group.calendar.google.com&ctz=America%2FNew_York" frameborder="0" scrolling="no"></iframe></div></div>
+                <div>
+                    <h3>Events Calendar</h3>
+                    <div class="cal-toggles">
+                        <button class="cal-btn" onclick="changeCalView('event-cal', 'WEEK')">Week View</button>
+                        <button class="cal-btn" onclick="changeCalView('event-cal', 'MONTH')">Month View</button>
+                    </div>
+                    <div class="calendar-container"><iframe id="event-cal" src="https://calendar.google.com/calendar/embed?src=c_fe4ba42333be7e0858e46e51142953f0c94fad8e94923765c5e2e80d88b3608d%40group.calendar.google.com&ctz=America%2FNew_York" frameborder="0" scrolling="no"></iframe></div>
+                </div>
             </div>
         </div>
     </div>
@@ -231,30 +291,22 @@
                     tasks = doc.data().tasks || [];
                     classData = doc.data().classData || [];
                 }
-                
-                updateClassDropdown();
-                renderTasks();
-                renderClasses();
-                
+                updateClassDropdown(); renderTasks(); renderClasses();
                 document.getElementById('loading-overlay').style.opacity = '0';
                 setTimeout(() => document.getElementById('loading-overlay').style.display = 'none', 300);
             } catch (error) {
-                console.error("Error loading data:", error);
                 document.getElementById('loading-overlay').innerText = "Database error. Did you add your config keys?";
             }
         }
 
         async function saveToCloud() {
-            try {
-                await db.collection("notionWorkspace").doc("myData").set({
-                    tasks: tasks,
-                    classData: classData
-                });
-            } catch (error) {
-                console.error("Error saving data:", error);
-            }
+            try { await db.collection("notionWorkspace").doc("myData").set({ tasks: tasks, classData: classData }); } 
+            catch (error) { console.error("Error saving:", error); }
         }
 
+        // ==========================================
+        // UI HELPERS
+        // ==========================================
         function switchPage(pageId) {
             document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
             document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
@@ -262,61 +314,61 @@
             event.target.classList.add('active');
         }
 
+        function toggleModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
+        }
+
+        function toggleCanvasSettings() { toggleModal('canvas-settings'); }
+
+        function changeCalView(iframeId, mode) {
+            const iframe = document.getElementById(iframeId);
+            let url = iframe.src;
+            url = url.replace(/&mode=(WEEK|MONTH|AGENDA)/g, ''); // Strip existing mode
+            iframe.src = url + '&mode=' + mode;
+        }
+
         function updateClassDropdown() {
             const select = document.getElementById('t-class');
             select.innerHTML = '<option value="General">None / General</option>';
-            classData.forEach(c => {
-                select.innerHTML += `<option value="${c.name}">${c.name}</option>`;
-            });
+            classData.forEach(c => { select.innerHTML += `<option value="${c.name}">${c.name}</option>`; });
         }
 
+        // ==========================================
+        // REPEATER LOGIC
+        // ==========================================
         function toggleRepeatUI() {
             const type = document.getElementById('t-repeat-type').value;
-            const customUI = document.getElementById('custom-days-ui');
-            const endsUI = document.getElementById('repeat-ends-ui');
-            
-            if (type === 'none') {
-                customUI.style.display = 'none';
-                endsUI.style.display = 'none';
-            } else if (type === 'weekly') {
-                customUI.style.display = 'none';
-                endsUI.style.display = 'flex';
-            } else if (type === 'custom') {
-                customUI.style.display = 'block';
-                endsUI.style.display = 'flex';
-            }
+            document.getElementById('custom-days-ui').style.display = type === 'custom' ? 'block' : 'none';
+            document.getElementById('repeat-ends-ui').style.display = type !== 'none' ? 'block' : 'none';
         }
 
         function toggleEndsUI() {
             const endsType = document.getElementById('t-ends-type').value;
-            document.getElementById('ends-date-container').style.display = endsType === 'on' ? 'block' : 'none';
+            document.getElementById('t-until').style.display = endsType === 'on' ? 'block' : 'none';
         }
 
-        function toggleDaySelection(element) {
-            element.classList.toggle('selected');
-        }
+        function toggleDaySelection(element) { element.classList.toggle('selected'); }
 
-        function getNextWeeklyDate(currentDateStr) {
+        function getNextDate(currentDateStr, repeatType, repeatDaysArr) {
             const parts = currentDateStr.split('-');
             let d = new Date(parts[0], parts[1] - 1, parts[2]);
-            d.setDate(d.getDate() + 7);
+            if (isNaN(d.getTime())) d = new Date();
+
+            if (repeatType === 'weekly') {
+                d.setDate(d.getDate() + 7);
+            } else {
+                for (let i = 1; i <= 7; i++) {
+                    d.setDate(d.getDate() + 1);
+                    if (repeatDaysArr.includes(d.getDay())) break;
+                }
+            }
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         }
 
-        function getNextCustomDate(currentDateStr, repeatDaysArr) {
-            const parts = currentDateStr.split('-');
-            let d = new Date(parts[0], parts[1] - 1, parts[2]); 
-            if (isNaN(d.getTime())) d = new Date();
-
-            for (let i = 1; i <= 7; i++) {
-                d.setDate(d.getDate() + 1);
-                if (repeatDaysArr.includes(d.getDay())) {
-                    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                }
-            }
-            return currentDateStr;
-        }
-
+        // ==========================================
+        // DATA LOGIC
+        // ==========================================
         function addTask() {
             const title = document.getElementById('t-title').value;
             if (!title) return alert("Title is required!");
@@ -324,102 +376,59 @@
             const repeatType = document.getElementById('t-repeat-type').value;
             let repeatDays = [];
             if (repeatType === 'custom') {
-                document.querySelectorAll('.day-badge.selected').forEach(badge => {
-                    repeatDays.push(parseInt(badge.getAttribute('data-day')));
-                });
-                if (repeatDays.length === 0) return alert("Please select at least one day for custom repeating.");
+                document.querySelectorAll('.day-badge.selected').forEach(badge => repeatDays.push(parseInt(badge.getAttribute('data-day'))));
+                if (repeatDays.length === 0) return alert("Please select at least one day.");
             }
 
             let repeatUntil = null;
-            if (repeatType !== 'none') {
-                if (document.getElementById('t-ends-type').value === 'on') {
-                    repeatUntil = document.getElementById('t-until').value;
-                    if (!repeatUntil) return alert("Please select an end date.");
-                }
+            if (repeatType !== 'none' && document.getElementById('t-ends-type').value === 'on') {
+                repeatUntil = document.getElementById('t-until').value;
+                if (!repeatUntil) return alert("Please select an end date.");
             }
 
             tasks.push({
-                id: Date.now(), 
-                title: title, 
-                category: document.getElementById('t-category').value, 
-                classCtx: document.getElementById('t-class').value, 
-                dueDate: document.getElementById('t-date').value || new Date().toISOString().split('T')[0], 
-                priority: document.getElementById('t-priority').value, 
-                progress: 0, 
-                completed: false, 
-                repeatType: repeatType,
-                repeatDays: repeatDays,
-                repeatUntil: repeatUntil
+                id: Date.now(), title: title, category: document.getElementById('t-category').value, 
+                classCtx: document.getElementById('t-class').value, dueDate: document.getElementById('t-date').value || new Date().toISOString().split('T')[0], 
+                priority: document.getElementById('t-priority').value, progress: 0, completed: false, 
+                repeatType: repeatType, repeatDays: repeatDays, repeatUntil: repeatUntil
             });
 
-            document.getElementById('t-title').value = ''; 
-            document.getElementById('t-date').value = '';
-            document.getElementById('t-repeat-type').value = 'none';
-            document.getElementById('t-ends-type').value = 'never';
-            document.getElementById('t-until').value = '';
+            // Reset and close
+            document.getElementById('t-title').value = ''; document.getElementById('t-date').value = '';
+            document.getElementById('t-repeat-type').value = 'none'; document.getElementById('t-ends-type').value = 'never'; document.getElementById('t-until').value = '';
             document.querySelectorAll('.day-badge').forEach(b => b.classList.remove('selected'));
-            toggleRepeatUI();
-            toggleEndsUI();
+            toggleRepeatUI(); toggleEndsUI(); toggleModal('task-modal');
             
-            renderTasks();
-            saveToCloud();
+            renderTasks(); saveToCloud();
         }
 
         function updateProgress(id, newProgress) {
             const task = tasks.find(t => t.id === id);
             if (task) {
                 task.progress = parseInt(newProgress);
-                if (task.progress === 100 && !task.completed) {
-                    toggleComplete(id);
-                } else if (task.progress < 100 && task.completed) {
-                    task.completed = false;
-                    renderTasks();
-                    saveToCloud();
-                } else {
-                    renderTasks();
-                    saveToCloud();
-                }
+                if (task.progress === 100 && !task.completed) toggleComplete(id);
+                else if (task.progress < 100 && task.completed) { task.completed = false; renderTasks(); saveToCloud(); } 
+                else { renderTasks(); saveToCloud(); }
             }
         }
 
         function toggleComplete(id) {
-            const taskIndex = tasks.findIndex(t => t.id === id);
-            if (taskIndex > -1) {
-                const task = tasks[taskIndex];
-                
+            const task = tasks.find(t => t.id === id);
+            if (task) {
                 if (task.repeatType && task.repeatType !== 'none' && !task.completed) {
-                    let nextDateStr = '';
-                    if (task.repeatType === 'weekly') {
-                        nextDateStr = getNextWeeklyDate(task.dueDate);
-                    } else if (task.repeatType === 'custom') {
-                        nextDateStr = getNextCustomDate(task.dueDate, task.repeatDays);
-                    }
+                    let nextDateStr = getNextDate(task.dueDate, task.repeatType, task.repeatDays);
 
                     if (task.repeatUntil && nextDateStr > task.repeatUntil) {
-                        task.completed = true;
-                        task.progress = 100;
+                        task.completed = true; task.progress = 100;
                     } else {
-                        tasks.push({
-                            ...task,
-                            id: Date.now() + Math.random(),
-                            completed: true,
-                            progress: 100,
-                            repeatType: 'none',
-                            repeatDays: [],
-                            repeatUntil: null
-                        });
-
-                        task.dueDate = nextDateStr;
-                        task.progress = 0; 
-                        task.completed = false;
+                        tasks.push({ ...task, id: Date.now() + Math.random(), completed: true, progress: 100, repeatType: 'none', repeatDays: [], repeatUntil: null });
+                        task.dueDate = nextDateStr; task.progress = 0; task.completed = false;
                     }
                 } else {
                     task.completed = !task.completed;
                     task.progress = task.completed ? 100 : 0;
                 }
-
-                renderTasks();
-                saveToCloud();
+                renderTasks(); saveToCloud();
             }
         }
 
@@ -427,42 +436,22 @@
             const name = document.getElementById('ci-name').value;
             if (!name) return alert("Class name required!");
 
-            classData.push({
-                id: Date.now(), 
-                name: name, 
-                prof: document.getElementById('ci-prof').value, 
-                email: document.getElementById('ci-email').value, 
-                mates: document.getElementById('ci-mates').value, 
-                syllabus: document.getElementById('ci-syllabus').value
-            });
+            classData.push({ id: Date.now(), name: name, prof: document.getElementById('ci-prof').value, email: document.getElementById('ci-email').value, mates: document.getElementById('ci-mates').value, syllabus: document.getElementById('ci-syllabus').value });
 
-            document.getElementById('ci-name').value = ''; 
-            document.getElementById('ci-prof').value = ''; 
-            document.getElementById('ci-email').value = ''; 
-            document.getElementById('ci-mates').value = ''; 
-            document.getElementById('ci-syllabus').value = '';
+            document.getElementById('ci-name').value = ''; document.getElementById('ci-prof').value = ''; document.getElementById('ci-email').value = ''; document.getElementById('ci-mates').value = ''; document.getElementById('ci-syllabus').value = '';
             
-            updateClassDropdown();
-            renderClasses();
-            saveToCloud();
+            toggleModal('class-modal'); updateClassDropdown(); renderClasses(); saveToCloud();
         }
 
         function deleteClass(id) {
             classData = classData.filter(c => c.id !== id);
-            updateClassDropdown();
-            renderClasses();
-            saveToCloud();
-        }
-
-        function toggleCanvasSettings() {
-            const settings = document.getElementById('canvas-settings');
-            settings.style.display = settings.style.display === 'none' ? 'grid' : 'none';
+            updateClassDropdown(); renderClasses(); saveToCloud();
         }
 
         async function fetchCanvasData() {
             const domain = document.getElementById('c-domain').value.trim();
             const token = document.getElementById('c-token').value.trim();
-            if (!domain || !token) return alert("Enter Canvas domain and API token.");
+            if (!domain || !token) return alert("Enter domain and token.");
             try {
                 const response = await fetch(`https://${domain}/api/v1/users/self/todo`, { headers: { 'Authorization': `Bearer ${token}` }});
                 if (!response.ok) throw new Error("CORS Blocked or Auth Failed.");
@@ -472,35 +461,31 @@
                     const taskTitle = item.assignment ? item.assignment.name : (item.ignore_url || "Canvas Task");
                     if (!tasks.find(t => t.title === taskTitle)) {
                         const isExam = taskTitle.toLowerCase().includes('exam') || taskTitle.toLowerCase().includes('quiz');
-                        tasks.push({
-                            id: Date.now() + Math.random(), title: taskTitle, category: isExam ? "exam" : "school", classCtx: item.context_name ? item.context_name.split(' ')[0] : "Canvas", dueDate: item.assignment && item.assignment.due_at ? item.assignment.due_at.split('T')[0] : '9999-12-31', priority: "High", progress: 0, completed: false, repeatType: 'none', repeatDays: []
-                        });
+                        tasks.push({ id: Date.now() + Math.random(), title: taskTitle, category: isExam ? "exam" : "school", classCtx: item.context_name ? item.context_name.split(' ')[0] : "Canvas", dueDate: item.assignment && item.assignment.due_at ? item.assignment.due_at.split('T')[0] : '9999-12-31', priority: "High", progress: 0, completed: false, repeatType: 'none', repeatDays: [] });
                         addedCount++;
                     }
                 });
-                alert(`Imported ${addedCount} new assignments from Canvas.`);
+                alert(`Imported ${addedCount} assignments.`);
                 renderTasks(); saveToCloud(); toggleCanvasSettings(); 
-            } catch (error) {
-                alert("Error syncing with Canvas: " + error.message);
-            }
+            } catch (error) { alert("Error: " + error.message); }
         }
 
+        // ==========================================
+        // RENDER FUNCTIONS
+        // ==========================================
         function renderTasks() {
             const sortedTasks = [...tasks].sort((a, b) => {
                 if (a.dueDate !== b.dueDate) return new Date(a.dueDate) - new Date(b.dueDate);
                 return a.progress - b.progress;
             });
             
-            const allList = document.getElementById('all-tasks-list'); 
-            const schoolList = document.getElementById('school-tasks-list'); 
-            const examsList = document.getElementById('exams-list'); 
-            const personalList = document.getElementById('personal-tasks-list');
+            const allList = document.getElementById('all-tasks-list'); const schoolList = document.getElementById('school-tasks-list'); 
+            const examsList = document.getElementById('exams-list'); const personalList = document.getElementById('personal-tasks-list');
             
             allList.innerHTML = ''; schoolList.innerHTML = ''; examsList.innerHTML = ''; personalList.innerHTML = '';
 
             sortedTasks.forEach(task => {
                 const isRepeating = task.repeatType && task.repeatType !== 'none';
-                
                 const taskHTML = `
                     <div class="task-item ${task.completed ? 'completed' : ''}">
                         <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} onchange="toggleComplete(${task.id})">
@@ -530,9 +515,7 @@
             grid.innerHTML = '';
             classData.forEach(c => {
                 let syllabusContent = c.syllabus || 'None provided.';
-                if (syllabusContent.startsWith('http')) {
-                    syllabusContent = `<a href="${syllabusContent}" target="_blank" style="color: var(--canvas-blue); text-decoration: underline;">View Syllabus Link</a>`;
-                }
+                if (syllabusContent.startsWith('http')) syllabusContent = `<a href="${syllabusContent}" target="_blank" style="color: var(--canvas-blue); text-decoration: underline;">View Syllabus Link</a>`;
                 
                 grid.innerHTML += `
                     <div class="class-card">
@@ -540,9 +523,7 @@
                         <div class="class-detail"><strong>Professor:</strong> ${c.prof || 'N/A'}</div>
                         <div class="class-detail"><strong>Email:</strong> <a href="mailto:${c.email}" style="color: var(--text-main);">${c.email || 'N/A'}</a></div>
                         <div class="class-detail"><strong>Classmates:</strong> ${c.mates || 'N/A'}</div>
-                        <div class="class-detail" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); overflow-wrap: break-word; white-space: pre-wrap;">
-                            <strong>Syllabus / Notes:</strong><br>${syllabusContent}
-                        </div>
+                        <div class="class-detail" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); overflow-wrap: break-word; white-space: pre-wrap;"><strong>Syllabus / Notes:</strong><br>${syllabusContent}</div>
                         <button class="danger" style="margin-top: 15px; width: 100%; padding: 8px;" onclick="deleteClass(${c.id})">Remove Class</button>
                     </div>`;
             });
